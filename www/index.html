@@ -80,6 +80,7 @@ h3 {
 var map;
 var events;
 var markers = [];
+var person;
 var geocoder;
 var currentday;
 
@@ -154,12 +155,14 @@ function onGetInitialPosition(pos) {
 		disableDefaultUI: true
 	});
 
-	new google.maps.Marker({
+	person = new google.maps.Marker({
 		map: map,
 		icon: 'img/person.png',
 		position: new google.maps.LatLng(pos.coords.latitude,pos.coords.longitude),
 		visible: true
 	});
+
+	navigator.geolocation.getCurrentPosition(onGetUpdatePosition);
 
 	loadDateEvents(new Date());
 }
@@ -172,8 +175,17 @@ function onFailGetInitialPosition() {
 		disableDefaultUI: true
 	});
 
-	$.get('http://calendar.nd.edu/events/cal/day/20131005/35_All+Events/?showDetails=yes',onRawCalendarArrival)
-		.fail(onRawCalendarFail);
+	loadDateEvents(new Date());
+}
+
+function onGetUpdatePosition(pos) {
+	person.setPosition(new google.maps.LatLng(pos.coords.latitude,pos.coords.longitude));
+
+	setTimeout(function() {
+		navigator.geolocation.getCurrentPosition(onGetUpdatePosition,function(){},{
+			enableHighAccuracy: true
+		});
+	},1000);
 }
 
 function clearDateEvents() {

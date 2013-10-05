@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Device Properties Example</title>
+
+		<style type="text/css">
+html, body, #map {
+	margin: 0;
+
+	width: 100%;
+	height: 100%;
+}
+		</style>
+
+		<script src="cordova.js"></script>
+		<script src="js/jquery-2.0.3.min.js"></script>
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDnbLECglAnS2E4z325GQociU0-SQU7lHY&sensor=true"></script> 
+		<script>
+var map;
+var events;
+var geocoder;
+
+document.addEventListener('deviceready',onDeviceReady,false);
+
+function onDeviceReady() {
+	geocoder = new google.maps.Geocoder();
+
+	navigator.geolocation.getCurrentPosition(onGetInitialPosition,onFailGetInitialPosition);
+}
+
+function onRawCalendarArrival(data) {
+	events = [];
+
+	var eventcells = $(data).find('table.eventList tr');
+
+	for(var i = 2; i < eventcells.length; i++) {
+		var cell = $(eventcells[i]);
+
+		var details = cell.find('td.description ul').html();
+
+		events[i - 2] = {
+			'name': cell.find('td.description h3').text().trim(),
+			'time': cell.find('td.time').text().trim(),
+			'location': details.match(/Location:([^<]*)/)[1].trim(),
+			'description': details.match(/Description:([^<]*)/)[1].trim()
+		};
+	}
+
+	events.forEach(displayEventOnMap);
+}
+
+function onRawCalendarFail() {
+	alert('Failed to retrieve calendar.');
+}
+
+function onGetInitialPosition(pos) {
+	map = new google.maps.Map(document.getElementById('map'),{
+		center: new google.maps.LatLng(pos.coords.latitude,pos.coords.longitude),
+		zoom: 18,
+		mapTypeId: google.maps.MapTypeId.ROADMAP,
+		disableDefaultUI: true
+	});
+
+	$.get('http://calendar.nd.edu/events/cal/day/20131005/35_All+Events/?showDetails=yes',onRawCalendarArrival)
+		.fail(onRawCalendarFail);
+}
+
+function onFailGetInitialPosition() {
+	map = new google.maps.Map(document.getElementById('map'),{
+		center: new google.maps.LatLng(41.704,-86.241),
+		zoom: 16,
+		mapTypeId: google.maps.MapTypeId.ROADMAP,
+		disableDefaultUI: true
+	});
+
+	$.get('http://calendar.nd.edu/events/cal/day/20131005/35_All+Events/?showDetails=yes',onRawCalendarArrival)
+		.fail(onRawCalendarFail);
+}
+
+function displayEventOnMap(e) {
+	geocoder.geocode({
+		address: e.location == 'campus-wide' || e.location == 'off campus' ? '' : e.location,
+		bounds: new google.maps.LatLngBounds(new google.maps.LatLng(41.68804,-86.258561),new google.maps.LatLng(41.712488,-86.219165))
+	},function(results, status) {
+		alert(e.name + ' is at ' + results[0].geometry.location.lat() + ', ' + results[0].geometry.location.lng());
+		e.marker = new google.maps.Marker({
+			map: map,
+			position: results[0].geometry.location,
+			visible: true
+		});
+	});
+}
+		</script>
+	</head>
+
+	<body>
+		<div id="map"></div>
+	</body>
+</html>
+

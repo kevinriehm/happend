@@ -4,25 +4,116 @@
 		<title>Device Properties Example</title>
 
 		<style type="text/css">
-html, body, #map {
+html, body {
 	margin: 0;
 
 	width: 100%;
 	height: 100%;
 }
+
+#map {
+	margin: 0;
+
+	width: 100%;
+	height: 100%;
+}
+
+h3 {
+	font-weight: normal;
+}
+
+#dates_outer {
+	background: -webkit-linear-gradient(#F0F0F0,#E0E0E0);
+
+	position: absolute;
+	left: 0;
+	bottom: 0;
+
+	border-top: 1px solid lightgrey;
+	border-bottom: 1px solid lightgrey;
+
+	width: 100%;
+	height: 50px;
+
+	overflow-x: scroll;
+	overflow-y: hidden;
+}
+
+#dates {
+	margin: 0;
+
+	width: 73831px;
+	height: 100%;
+
+	overflow-y: hidden;
+}
+
+#dates > a {
+	display: block;
+
+	float: left;
+	position: relative;
+	top: 50%;
+
+	margin-top: -20px;
+	border-right: 1px solid lightgrey;
+
+	width: 100px;
+
+	line-height: 40px;
+	text-align: center;
+}
+
+#dates > a.current {
+	background: lightblue;
+}
 		</style>
 
 		<script src="cordova.js"></script>
-		<script src="js/jquery-2.0.3.min.js"></script>
+
 		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDnbLECglAnS2E4z325GQociU0-SQU7lHY&sensor=true"></script> 
+
+		<script src="js/jquery-2.0.3.min.js"></script>
+		<script src="js/mapiconmaker.js"></script>
+
 		<script>
 var map;
 var events;
+var markers = [];
 var geocoder;
+var currentday;
 
 document.addEventListener('deviceready',onDeviceReady,false);
 
 function onDeviceReady() {
+	var monthAbbrs = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+	var now = new Date().getTime();
+	for(var i = -180; i < 180; i++) {
+		var d = new Date(now + i*24*60*60*1000);
+
+		$('#dates').append($('<a>' + monthAbbrs[d.getMonth()] + ' ' + d.getDate() + '</a>')
+			.click((function() {
+					var index = i;
+					var date = d;
+
+					return function() {
+						$($('#dates > a')[currentday]).removeClass('current');
+						$(this).addClass('current');
+						currentday = index + 180;
+
+						clearDateEvents();
+						loadDateEvents(date);
+					};
+			})()));
+	}
+
+	currentday = 180;
+	$($('#dates > a')[180]).addClass('current');
+	$('#dates_outer').scrollLeft($($('#dates > a')[180]).offset().left);
+
+	$('#map').css('height',$('body').height() - 52);
+
 	geocoder = new google.maps.Geocoder();
 
 	navigator.geolocation.getCurrentPosition(onGetInitialPosition,onFailGetInitialPosition);
@@ -31,7 +122,7 @@ function onDeviceReady() {
 function onRawCalendarArrival(data) {
 	events = [];
 
-	var eventcells = $(data).find('table.eventList tr');
+	var eventcells = $(data.replace(/\n/g,'<br>')).find('table.eventList tr');
 
 	for(var i = 2; i < eventcells.length; i++) {
 		var cell = $(eventcells[i]);
@@ -41,12 +132,14 @@ function onRawCalendarArrival(data) {
 		events[i - 2] = {
 			'name': cell.find('td.description h3').text().trim(),
 			'time': cell.find('td.time').text().trim(),
-			'location': details.match(/Location:([^<]*)/)[1].trim(),
-			'description': details.match(/Description:([^<]*)/)[1].trim()
+			'location': details.match(/<li>Location:(.*?)<\/li>/)[1].trim(),
+			'description': details.match(/<li>Description:(.*?)<\/li>/)[1].trim()
 		};
 	}
 
 	events.forEach(displayEventOnMap);
+
+	google.maps.event.trigger(map,'resize');
 }
 
 function onRawCalendarFail() {
@@ -56,19 +149,25 @@ function onRawCalendarFail() {
 function onGetInitialPosition(pos) {
 	map = new google.maps.Map(document.getElementById('map'),{
 		center: new google.maps.LatLng(pos.coords.latitude,pos.coords.longitude),
-		zoom: 18,
+		zoom: 14,
 		mapTypeId: google.maps.MapTypeId.ROADMAP,
 		disableDefaultUI: true
 	});
 
-	$.get('http://calendar.nd.edu/events/cal/day/20131005/35_All+Events/?showDetails=yes',onRawCalendarArrival)
-		.fail(onRawCalendarFail);
+	new google.maps.Marker({
+		map: map,
+		icon: 'img/person.png',
+		position: new google.maps.LatLng(pos.coords.latitude,pos.coords.longitude),
+		visible: true
+	});
+
+	loadDateEvents(new Date());
 }
 
 function onFailGetInitialPosition() {
 	map = new google.maps.Map(document.getElementById('map'),{
-		center: new google.maps.LatLng(41.704,-86.241),
-		zoom: 16,
+		center: new google.maps.LatLng(41.702953,-86.238975),
+		zoom: 14,
 		mapTypeId: google.maps.MapTypeId.ROADMAP,
 		disableDefaultUI: true
 	});
@@ -77,16 +176,42 @@ function onFailGetInitialPosition() {
 		.fail(onRawCalendarFail);
 }
 
-function displayEventOnMap(e) {
+function clearDateEvents() {
+	markers.forEach(function(m, i) {
+		m.setMap(null);
+	});
+	markers = [];
+}
+
+function loadDateEvents(day) {
+	$.get('http://calendar.nd.edu/events/cal/day/' + day.getFullYear() + ('0' + (day.getMonth() + 1)).slice(-2) + ('0' + day.getDate()).slice(-2) + '/35_All+Events/?showDetails=yes',onRawCalendarArrival)
+		.fail(onRawCalendarFail);
+}
+
+function displayEventOnMap(e, index, events) {
 	geocoder.geocode({
 		address: e.location == 'campus-wide' || e.location == 'off campus' ? '' : e.location,
 		bounds: new google.maps.LatLngBounds(new google.maps.LatLng(41.68804,-86.258561),new google.maps.LatLng(41.712488,-86.219165))
 	},function(results, status) {
-		alert(e.name + ' is at ' + results[0].geometry.location.lat() + ', ' + results[0].geometry.location.lng());
-		e.marker = new google.maps.Marker({
+		events[index].infowindow = new google.maps.InfoWindow({
+			content:
+'<div class="popup">' +
+	'<h1>' + e.name + '</h1>' +
+	'<h2>' + e.location + ' &mdash; ' + (e.time == "Today" ? "All Day" : e.time) + '</h2>' +
+	'<h3>' + e.description + '</h3>' +
+'</div>',
+			maxWidth: $('#map').width() - 56
+		});
+
+		markers.push(e.marker = new google.maps.Marker({
 			map: map,
+			title: e.name,
 			position: results[0].geometry.location,
 			visible: true
+		}));
+
+		google.maps.event.addListener(e.marker,'click',function() {
+			e.infowindow.open(map,e.marker);
 		});
 	});
 }
@@ -95,6 +220,10 @@ function displayEventOnMap(e) {
 
 	<body>
 		<div id="map"></div>
+
+		<div id="dates_outer">
+			<nav id="dates"></nav>
+		</div>
 	</body>
 </html>
 

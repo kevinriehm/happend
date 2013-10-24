@@ -74,7 +74,6 @@ h3 {
 		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDnbLECglAnS2E4z325GQociU0-SQU7lHY&sensor=true"></script> 
 
 		<script src="js/jquery-2.0.3.min.js"></script>
-		<script src="js/mapiconmaker.js"></script>
 
 		<script>
 var map;
@@ -220,7 +219,7 @@ function displayEventOnMap(e, index, events) {
 			title: e.name,
 			position: results[0].geometry.location,
 			visible: true,
-			icon: currentday < 180 ? "http://maps.google.com/mapfiles/marker.png" : currentday > 180 ? "http://maps.google.com/mapfiles/marker_green.png" : 
+			icon: currentday < 180 ? "http://maps.google.com/mapfiles/marker.png" : currentday > 180 ? "http://maps.google.com/mapfiles/marker_green.png" : "http://maps.google.com/mapfiles/marker_yellow.png"
 		}));
 
 		google.maps.event.addListener(e.marker,'click',function() {

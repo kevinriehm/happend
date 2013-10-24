@@ -219,7 +219,8 @@ function displayEventOnMap(e, index, events) {
 			map: map,
 			title: e.name,
 			position: results[0].geometry.location,
-			visible: true
+			visible: true,
+			icon: currentday < 180 ? "http://maps.google.com/mapfiles/marker.png" : currentday > 180 ? "http://maps.google.com/mapfiles/marker_green.png" : 
 		}));
 
 		google.maps.event.addListener(e.marker,'click',function() {
